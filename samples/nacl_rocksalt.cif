@@ -1,0 +1,25 @@
+data_NaCl_Halite
+_chemical_name_common            'Sodium Chloride (Rocksalt)'
+_cell_length_a                   5.640200
+_cell_length_b                   5.640200
+_cell_length_c                   5.640200
+_cell_angle_alpha                90.0000
+_cell_angle_beta                 90.0000
+_cell_angle_gamma                90.0000
+_cell_volume                     179.424
+
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+Na1 Na 0.00000 0.00000 0.00000 1.0
+Na2 Na 0.50000 0.50000 0.00000 1.0
+Na3 Na 0.50000 0.00000 0.50000 1.0
+Na4 Na 0.00000 0.50000 0.50000 1.0
+Cl1 Cl 0.50000 0.00000 0.00000 1.0
+Cl2 Cl 0.00000 0.50000 0.00000 1.0
+Cl3 Cl 0.00000 0.00000 0.50000 1.0
+Cl4 Cl 0.50000 0.50000 0.50000 1.0

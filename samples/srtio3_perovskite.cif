@@ -1,0 +1,22 @@
+data_SrTiO3
+_chemical_name_common            'Strontium Titanate (Perovskite)'
+_cell_length_a                   3.905000
+_cell_length_b                   3.905000
+_cell_length_c                   3.905000
+_cell_angle_alpha                90.0000
+_cell_angle_beta                 90.0000
+_cell_angle_gamma                90.0000
+_cell_volume                     59.547
+
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+Sr1 Sr 0.00000 0.00000 0.00000 1.0
+Ti1 Ti 0.50000 0.50000 0.50000 1.0
+O1  O  0.50000 0.50000 0.00000 1.0
+O2  O  0.50000 0.00000 0.50000 1.0
+O3  O  0.00000 0.50000 0.50000 1.0

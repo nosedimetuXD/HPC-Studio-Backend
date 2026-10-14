@@ -1,0 +1,137 @@
+     Program PWSCF v.7.2 starts on 11Oct2026 at 15:30:10
+     Title: Perovskite SrTiO3 Structural Relaxation (BFGS)
+     calculation = 'relax'
+
+     bravais-lattice index     =            1
+     lattice parameter (alat)  =       7.3700  a.u.
+     unit-cell volume          =     400.3245 (a.u.)^3
+     number of atoms/cell      =            5
+     number of atomic types    =            3
+     kinetic-energy cutoff     =      45.0000  Ry
+     charge-density cutoff     =     360.0000  Ry
+
+     crystal axes: (cart. coord. in units of alat)
+               a(1) = (   1.000000   0.000000   0.000000 )
+               a(2) = (   0.000000   1.000000   0.000000 )
+               a(3) = (   0.000000   0.000000   1.000000 )
+
+     Entering Dynamics:    iteration =     1
+
+     iteration #   1     ecut=    45.00 Ry     beta= 0.70
+     total energy              =    -120.45012300 Ry
+     estimated scf accuracy    <       0.04500000 Ry
+     total cpu time spent up to now is      1.1 secs
+
+     iteration #   2     ecut=    45.00 Ry     beta= 0.70
+     total energy              =    -120.52184000 Ry
+     estimated scf accuracy    <       0.00210000 Ry
+     total cpu time spent up to now is      2.2 secs
+
+     iteration #   3     ecut=    45.00 Ry     beta= 0.70
+     total energy              =    -120.54890000 Ry
+     estimated scf accuracy    <       0.00004500 Ry
+     total cpu time spent up to now is      3.3 secs
+
+     iteration #   4     ecut=    45.00 Ry     beta= 0.70
+     total energy              =    -120.55120000 Ry
+     estimated scf accuracy    <       0.00000012 Ry
+     total cpu time spent up to now is      4.4 secs
+
+     End of self-consistent calculation
+
+!    total energy              =    -120.55120450 Ry
+     estimated scf accuracy    <          1.2E-07 Ry
+
+     Forces acting on atoms (cartesian axes, Ry/au):
+     atom    1 type  1   force =     0.00000000    0.00000000    0.00000000
+     atom    2 type  2   force =     0.00000000    0.00000000    0.02450000
+     atom    3 type  3   force =     0.00000000    0.00000000   -0.02450000
+     atom    4 type  3   force =     0.00000000    0.00000000    0.00000000
+     atom    5 type  3   force =     0.00000000    0.00000000    0.00000000
+
+     Total force =     0.034648     Total SCF correction =     0.000052
+
+ATOMIC_POSITIONS (crystal)
+Sr   0.000000000   0.000000000   0.000000000
+Ti   0.500000000   0.500000000   0.505200000
+O    0.500000000   0.500000000  -0.004800000
+O    0.500000000   0.000000000   0.500000000
+O    0.000000000   0.500000000   0.500000000
+
+     Entering Dynamics:    iteration =     2
+
+     iteration #   1     ecut=    45.00 Ry     beta= 0.70
+     total energy              =    -120.55200000 Ry
+     estimated scf accuracy    <       0.00500000 Ry
+     total cpu time spent up to now is      5.5 secs
+
+     iteration #   2     ecut=    45.00 Ry     beta= 0.70
+     total energy              =    -120.55740000 Ry
+     estimated scf accuracy    <       0.00010000 Ry
+     total cpu time spent up to now is      6.6 secs
+
+     iteration #   3     ecut=    45.00 Ry     beta= 0.70
+     total energy              =    -120.55820000 Ry
+     estimated scf accuracy    <       0.00000005 Ry
+     total cpu time spent up to now is      7.7 secs
+
+     End of self-consistent calculation
+
+!    total energy              =    -120.55823410 Ry
+     estimated scf accuracy    <          5.0E-08 Ry
+
+     Forces acting on atoms (cartesian axes, Ry/au):
+     atom    1 type  1   force =     0.00000000    0.00000000    0.00000000
+     atom    2 type  2   force =     0.00000000    0.00000000    0.00620000
+     atom    3 type  3   force =     0.00000000    0.00000000   -0.00620000
+     atom    4 type  3   force =     0.00000000    0.00000000    0.00000000
+     atom    5 type  3   force =     0.00000000    0.00000000    0.00000000
+
+     Total force =     0.008768     Total SCF correction =     0.000010
+
+ATOMIC_POSITIONS (crystal)
+Sr   0.000000000   0.000000000   0.000000000
+Ti   0.500000000   0.500000000   0.502100000
+O    0.500000000   0.500000000  -0.002100000
+O    0.500000000   0.000000000   0.500000000
+O    0.000000000   0.500000000   0.500000000
+
+     Entering Dynamics:    iteration =     3
+
+     iteration #   1     ecut=    45.00 Ry     beta= 0.70
+     total energy              =    -120.55840000 Ry
+     estimated scf accuracy    <       0.00120000 Ry
+     total cpu time spent up to now is      8.8 secs
+
+     iteration #   2     ecut=    45.00 Ry     beta= 0.70
+     total energy              =    -120.55910000 Ry
+     estimated scf accuracy    <       0.00000001 Ry
+     total cpu time spent up to now is      9.9 secs
+
+     End of self-consistent calculation
+
+!    total energy              =    -120.55912040 Ry
+     estimated scf accuracy    <          1.0E-08 Ry
+
+     Forces acting on atoms (cartesian axes, Ry/au):
+     atom    1 type  1   force =     0.00000000    0.00000000    0.00000000
+     atom    2 type  2   force =     0.00000000    0.00000000    0.00001200
+     atom    3 type  3   force =     0.00000000    0.00000000   -0.00001200
+     atom    4 type  3   force =     0.00000000    0.00000000    0.00000000
+     atom    5 type  3   force =     0.00000000    0.00000000    0.00000000
+
+     Total force =     0.000017     Total SCF correction =     0.000001
+
+ATOMIC_POSITIONS (crystal)
+Sr   0.000000000   0.000000000   0.000000000
+Ti   0.500000000   0.500000000   0.500100000
+O    0.500000000   0.500000000  -0.000100000
+O    0.500000000   0.000000000   0.500000000
+O    0.000000000   0.500000000   0.500000000
+
+     bfgs converged in   3 scf cycles and   3 bfgs steps
+     End of BFGS geometry calculation
+
+     PWSCF        :     10.50s CPU     11.20s WALL
+
+     JOB DONE.

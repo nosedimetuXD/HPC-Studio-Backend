@@ -1,0 +1,95 @@
+     Program PWSCF v.7.2 starts on 11Oct2026 at 14:15:22
+     Title: Silicon Bulk Electronic Band Structure Calculation
+     calculation = 'bands'
+
+     bravais-lattice index     =            2
+     lattice parameter (alat)  =      10.2600  a.u.
+     unit-cell volume          =     269.9760 (a.u.)^3
+     number of atoms/cell      =            2
+     number of atomic types    =            1
+     number of electrons       =         8.00
+     number of Kohn-Sham states=            8
+     kinetic-energy cutoff     =      35.0000  Ry
+     charge-density cutoff     =     280.0000  Ry
+
+     crystal axes: (cart. coord. in units of alat)
+               a(1) = (  -0.500000   0.000000   0.500000 )
+               a(2) = (   0.000000   0.500000   0.500000 )
+               a(3) = (  -0.500000   0.500000   0.000000 )
+
+     reciprocal axes: (cart. coord. in units 2 pi/alat)
+               b(1) = (  -1.000000  -1.000000   1.000000 )
+               b(2) = (   1.000000   1.000000   1.000000 )
+               b(3) = (  -1.000000   1.000000  -1.000000 )
+
+     PseudoPot. # 1 for Si read from file:
+     ./pseudo/Si.pbe-n-kjpaw_psl.1.0.0.UPF
+     MD5 check sum: 3fa0411a768e998bb9910d6e67cf7582
+     Pseudo is Projector Augmented-Wave + core hole, Zval =  4.0
+
+     atomic species   valence    mass     pseudopotential
+        Si             4.00    28.08550     Si( 1.00)
+
+     site n.     atom                  positions (alat units)
+         1           Si  tau(   1) = (   0.0000000   0.0000000   0.0000000  )
+         2           Si  tau(   2) = (   0.2500000   0.2500000   0.2500000  )
+
+     number of k points=     8
+
+     iteration #   1     ecut=    35.00 Ry     beta= 0.70
+     total energy              =     -15.84501892 Ry
+     Harris-Foulkes estimate   =     -15.84501892 Ry
+     estimated scf accuracy    <          1.0E-09 Ry
+     total cpu time spent up to now is      1.4 secs
+
+     End of self-consistent calculation
+
+!    total energy              =     -15.84501892 Ry
+     Harris-Foulkes estimate   =     -15.84501892 Ry
+     estimated scf accuracy    <          1.0E-09 Ry
+
+     The Fermi energy is     6.3541 ev
+
+          k = 0.0000 0.0000 0.0000 (   335 PWs)   bands (ev):
+    -5.6033   6.3541   6.3541   6.3541   8.8267   8.8267   8.8267  10.2355
+
+          k = 0.5000 0.0000 0.5000 (   335 PWs)   bands (ev):
+    -3.2104   0.4501   5.2100   5.2100   7.5210   7.5210   9.1023  11.4500
+
+          k = 0.6250 0.2500 0.6250 (   335 PWs)   bands (ev):
+    -2.1000   1.8000   5.1000   5.1000   7.9000   7.9000  10.1000  12.3000
+
+          k = 0.3750 0.3750 0.7500 (   335 PWs)   bands (ev):
+    -1.5000   2.1000   4.8500   4.8500   8.1000   8.1000   9.8000  12.0000
+
+          k = 0.0000 0.0000 0.0000 (   335 PWs)   bands (ev):
+    -5.6033   6.3541   6.3541   6.3541   8.8267   8.8267   8.8267  10.2355
+
+          k = 0.5000 0.5000 0.5000 (   335 PWs)   bands (ev):
+    -4.1000   3.2000   4.9000   4.9000   8.5000   8.5000   9.4000  11.8000
+
+          k = 0.5000 0.2500 0.7500 (   335 PWs)   bands (ev):
+    -2.4500   2.3000   5.0500   5.0500   7.8500   7.8500  10.0500  12.1500
+
+          k = 0.5000 0.0000 0.5000 (   335 PWs)   bands (ev):
+    -3.2104   0.4501   5.2100   5.2100   7.5210   7.5210   9.1023  11.4500
+
+     highest occupied, lowest unoccupied level (ev):     6.3541    7.5210
+
+     Forces acting on atoms (cartesian axes, Ry/au):
+     atom    1 type  1   force =     0.00000000    0.00000000    0.00000000
+     atom    2 type  1   force =     0.00000000    0.00000000    0.00000000
+
+     Total force =     0.000000     Total SCF correction =     0.000000
+
+     total   stress  (Ry/bohr**3)                   (kbar)     P=   -0.54
+       -0.00000365   0.00000000   0.00000000         -0.54      0.00      0.00
+        0.00000000  -0.00000365   0.00000000          0.00     -0.54      0.00
+        0.00000000   0.00000000  -0.00000365          0.00      0.00     -0.54
+
+     init_run     :      0.25s CPU      0.28s WALL (       1 calls)
+     electrons    :      1.80s CPU      1.92s WALL (       1 calls)
+
+     PWSCF        :      2.10s CPU      2.25s WALL
+
+     JOB DONE.

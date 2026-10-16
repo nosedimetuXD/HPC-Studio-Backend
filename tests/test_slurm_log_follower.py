@@ -57,7 +57,7 @@ def mock_ssh_manager():
     transport = MagicMock()
     transport.is_active.return_value = True
 
-    channel = MockChannel([b"line 1\nline 2\n", b"line 3\n"], auto_exit=True)
+    channel = MockChannel([b"line 1\nline 2\n", b"line 3\n"], auto_exit=False)
     transport.open_session.return_value = channel
 
     client.get_transport.return_value = transport
@@ -117,6 +117,7 @@ def test_stream_lines_received(qtbot, mock_ssh_manager):
 
     assert received_lines == ["line 1", "line 2", "line 3"]
     assert "tail -n 50 -f" in mock_ssh_manager.mock_channel.cmd_executed
+    streamer.stop_streaming()
 
 
 def test_pause_and_resume_streaming():

@@ -165,7 +165,7 @@ class TestAgyCliProvider:
         mock_proc.returncode = 0
         mock_proc.wait.return_value = 0
 
-        with patch("subprocess.Popen", return_value=mock_proc):
+        with patch("shutil.which", return_value="/usr/bin/agy"), patch("subprocess.Popen", return_value=mock_proc):
             events = list(provider.stream_chat("Prueba"))
 
         assert len(events) == 3
@@ -183,13 +183,22 @@ class TestAgyCliProvider:
         mock_proc.returncode = 1
         mock_proc.wait.return_value = 1
 
-        with patch("subprocess.Popen", return_value=mock_proc):
+        with patch("shutil.which", return_value="/usr/bin/agy"), patch("subprocess.Popen", return_value=mock_proc):
             events = list(provider.stream_chat("Prueba"))
 
         assert len(events) == 1
         assert isinstance(events[0], ErrorEvent)
         assert "code 1" in events[0].error_message
         assert "Binary auth error" in events[0].error_message
+
+    def test_stream_chat_binary_not_found(self):
+        """Verify stream_chat emits ErrorEvent when agy is not in PATH."""
+        provider = AgyCliProvider()
+        with patch("shutil.which", return_value=None):
+            events = list(provider.stream_chat("Prueba"))
+        assert len(events) == 1
+        assert isinstance(events[0], ErrorEvent)
+        assert "not found in PATH" in events[0].error_message
 
     def test_zero_emoji_compliance(self):
         """Ensure test file and provider have zero emojis."""

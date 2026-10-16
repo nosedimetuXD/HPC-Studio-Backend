@@ -31,6 +31,7 @@ dev = [
 [project.scripts]
 hpc-studio = "hpc_studio.main:main"
 hpc-studio-server = "hpc_studio.server.cli:main"
+hpc-studio-mcp = "hpc_studio.mcp.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hpc_studio"]

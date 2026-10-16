@@ -62,8 +62,19 @@ def create_clusters_router(config: ServerConfig, verifier: TokenVerifier) -> API
             current_entry = ssh_manager.current_entry
             active_cluster = current_entry.to_dict() if current_entry else {"status": "connected"}
 
+        presets = [
+            {
+                "name": "Quantum Mobile (VirtualBox)",
+                "hostname": "127.0.0.1",
+                "port": 2222,
+                "user": "max",
+                "description": "Local simulation VM for materials science (Quantum ESPRESSO, AiiDA, Slurm)",
+            }
+        ]
+
         return {
             "clusters": clusters,
+            "presets": presets,
             "active_cluster": active_cluster,
             "is_connected": bool(ssh_manager and ssh_manager.is_connected),
         }
@@ -79,24 +90,43 @@ def create_clusters_router(config: ServerConfig, verifier: TokenVerifier) -> API
         parser = SSHConfigParser()
         entry = parser.get_host(payload.host)
 
+        # Detect Quantum Mobile preset defaults
+        is_quantum_mobile = (
+            payload.host in ("127.0.0.1", "localhost", "quantum-mobile")
+            and (payload.port == 2222 or payload.host == "quantum-mobile")
+        )
+
+        user = payload.user
+        port = payload.port
+        if is_quantum_mobile:
+            if not user:
+                user = "max"
+            if port == 22 and payload.host == "quantum-mobile":
+                port = 2222
+
         if entry is None:
             entry = SSHHostEntry(
                 host=payload.host,
-                hostname=payload.host,
-                user=payload.user,
-                port=payload.port,
+                hostname="127.0.0.1" if payload.host == "quantum-mobile" else payload.host,
+                user=user or ("max" if is_quantum_mobile else None),
+                port=port,
                 identity_file=payload.identity_file,
             )
         else:
             # Override with explicit values provided by caller if given
-            if payload.user:
-                entry.user = payload.user
-            if payload.port != 22:
-                entry.port = payload.port
+            if user:
+                entry.user = user
+            if port != 22 or is_quantum_mobile:
+                entry.port = port
             if payload.identity_file:
                 entry.identity_file = payload.identity_file
                 if payload.identity_file not in entry.identity_files:
                     entry.identity_files.insert(0, payload.identity_file)
+
+        # Quantum Mobile default password fallback if no password or key is provided
+        password = payload.password
+        if is_quantum_mobile and not password and not payload.identity_file:
+            password = "moritz"
 
         # Disconnect existing connection cleanly if any
         existing_mgr: Optional[SSHClientManager] = getattr(request.app.state, "ssh_manager", None)
@@ -111,7 +141,7 @@ def create_clusters_router(config: ServerConfig, verifier: TokenVerifier) -> API
             mgr.connect(
                 host_entry=entry,
                 passphrase=payload.passphrase,
-                password=payload.password,
+                password=password,
                 timeout=payload.timeout,
             )
         except Exception as exc:
@@ -167,13 +197,15 @@ def create_clusters_router(config: ServerConfig, verifier: TokenVerifier) -> API
         _: str = Depends(verifier),
     ) -> Dict[str, Any]:
         """Measure TCP connection latency to the specified host and port."""
+        target_host = "127.0.0.1" if payload.host == "quantum-mobile" else payload.host
+        target_port = 2222 if (payload.host == "quantum-mobile" and payload.port == 22) else payload.port
         start_time = time.monotonic()
         try:
-            with socket.create_connection((payload.host, payload.port), timeout=payload.timeout):
+            with socket.create_connection((target_host, target_port), timeout=payload.timeout):
                 latency_ms = (time.monotonic() - start_time) * 1000.0
             return {
                 "host": payload.host,
-                "port": payload.port,
+                "port": target_port,
                 "reachable": True,
                 "latency_ms": round(latency_ms, 2),
             }

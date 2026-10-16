@@ -246,3 +246,37 @@ def test_sftp_list_and_transfers(test_client: TestClient, server_config: ServerC
     )
     assert dl_resp.status_code == 200
     assert dl_resp.json()["status"] == "downloaded"
+
+
+def test_clusters_quantum_mobile_preset(test_client: TestClient, server_config: ServerConfig):
+    # Verify presets are listed in GET /api/clusters
+    resp = test_client.get("/api/clusters", headers={"X-HPC-Token": server_config.token})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "presets" in data
+    assert any(p["name"] == "Quantum Mobile (VirtualBox)" and p["port"] == 2222 for p in data["presets"])
+
+    # Test connecting to Quantum Mobile with default credentials
+    with patch("hpc_studio.server.routes.clusters.SSHClientManager") as mock_mgr_cls:
+        mock_mgr = MagicMock()
+        mock_mgr.is_connected = True
+        mock_mgr.current_entry = SSHHostEntry(host="127.0.0.1", hostname="127.0.0.1", user="max", port=2222)
+        mock_mgr.open_sftp.return_value = MagicMock()
+        mock_mgr_cls.return_value = mock_mgr
+
+        conn_resp = test_client.post(
+            "/api/clusters/connect",
+            json={"host": "127.0.0.1", "port": 2222},
+            headers={"X-HPC-Token": server_config.token},
+        )
+        assert conn_resp.status_code == 200
+        result = conn_resp.json()
+        assert result["status"] == "connected"
+        assert result["cluster"]["user"] == "max"
+        assert result["cluster"]["port"] == 2222
+
+        # Verify connect was called with password 'moritz'
+        mock_mgr.connect.assert_called_once()
+        call_kwargs = mock_mgr.connect.call_args[1]
+        assert call_kwargs["password"] == "moritz"
+

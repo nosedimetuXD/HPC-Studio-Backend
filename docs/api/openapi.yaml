@@ -1,0 +1,938 @@
+openapi: 3.1.0
+info:
+  title: HPC Studio Backend API
+  version: 0.1.0
+  description: >
+    API REST síncrona y basada en eventos para el motor Sidecar de HPC Studio.
+    Proporciona supervisión de clústeres SSH, gestión de cargas de trabajo con
+    Slurm, navegación remota de archivos mediante SFTP y asistencia conversacional
+    para simulación científica.
+  contact:
+    name: HPC Studio Engineering Team
+    url: https://github.com/nosedimetuXD/HPC-Studio
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://127.0.0.1:8000
+    description: Servidor Sidecar Local (Loopback)
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/health:
+    get:
+      summary: Verificación del estado de salud del backend
+      description: Retorna el estado operativo, tiempo de actividad (uptime), versión y detalles del entorno anfitrión.
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Servicio saludable y operativo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/clusters:
+    get:
+      summary: Listar clústeres configurados y clúster activo
+      description: Lee las configuraciones de hosts desde ~/.ssh/config y perfiles de usuario, reportando el clúster activo si existe una sesión establecida.
+      operationId: listClusters
+      tags:
+        - Clusters
+      responses:
+        '200':
+          description: Catálogo de clústeres disponibles y estado de conexión actual.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/clusters/connect:
+    post:
+      summary: Establecer conexión SSH con un clúster
+      description: Inicia una sesión SSH autenticada mediante claves criptográficas o contraseña, inicializando los subsistemas de Slurm y SFTP.
+      operationId: connectCluster
+      tags:
+        - Clusters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectClusterRequest'
+      responses:
+        '200':
+          description: Conexión establecida satisfactoriamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectClusterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/clusters/disconnect:
+    post:
+      summary: Cerrar sesión SSH activa
+      description: Termina la conexión SSH con el clúster actual, liberando canales SFTP y sesiones de streaming.
+      operationId: disconnectCluster
+      tags:
+        - Clusters
+      responses:
+        '200':
+          description: Sesión cerrada exitosamente.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                  - message
+                properties:
+                  status:
+                    type: string
+                    example: disconnected
+                  message:
+                    type: string
+                    example: Disconnected from cluster
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/clusters/ping:
+    post:
+      summary: Medir latencia de red TCP hacia un host
+      description: Realiza un sondeo TCP rápido hacia el host y puerto especificados para determinar latencia y alcanzabilidad.
+      operationId: pingCluster
+      tags:
+        - Clusters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PingClusterRequest'
+      responses:
+        '200':
+          description: Medición de latencia completada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PingClusterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/slurm/jobs:
+    get:
+      summary: Consultar la cola de trabajos de Slurm
+      description: Obtiene la lista de trabajos encolados y en ejecución en el clúster activo a través del comando squeue.
+      operationId: listSlurmJobs
+      tags:
+        - Slurm
+      parameters:
+        - name: user
+          in: query
+          required: false
+          description: Filtrar trabajos pertenecientes a un nombre de usuario específico.
+          schema:
+            type: string
+        - name: partition
+          in: query
+          required: false
+          description: Filtrar trabajos asignados a una partición específica.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de trabajos recuperada exitosamente.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SlurmJob'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+  /api/slurm/submit:
+    post:
+      summary: Enviar un trabajo por lotes a Slurm (sbatch)
+      description: Valida y envía un script de cálculo por lotes a la cola de Slurm, ya sea mediante una ruta en disco o directamente con el contenido textual del script.
+      operationId: submitSlurmJob
+      tags:
+        - Slurm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitJobRequest'
+      responses:
+        '200':
+          description: Trabajo recibido y aceptado por el planificador Slurm.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitJobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+  /api/slurm/jobs/{job_id}/cancel:
+    post:
+      summary: Cancelar un trabajo en ejecución o pendiente (scancel)
+      description: Emite una orden scancel al gestor Slurm para cancelar el trabajo indicado, permitiendo especificar señales POSIX opcionales.
+      operationId: cancelSlurmJob
+      tags:
+        - Slurm
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          description: Identificador numérico del trabajo en Slurm (ej. '10234').
+          schema:
+            type: string
+            pattern: '^[0-9]+(_[0-9]+)?$'
+        - name: signal
+          in: query
+          required: false
+          description: Señal POSIX a enviar al trabajo (ej. SIGTERM, SIGKILL).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Orden de cancelación procesada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelJobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+  /api/slurm/jobs/{job_id}/log:
+    get:
+      summary: Obtener el registro de ejecución de un trabajo
+      description: Lee las últimas líneas del archivo de salida estándar o error generado por el trabajo en ejecución.
+      operationId: getSlurmJobLog
+      tags:
+        - Slurm
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          description: Identificador del trabajo en Slurm.
+          schema:
+            type: string
+        - name: lines
+          in: query
+          required: false
+          description: Cantidad de líneas finales a recuperar (comportamiento tail).
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 5000
+        - name: log_path
+          in: query
+          required: false
+          description: Ruta explícita al archivo de registro si difiere de la convención slurm-%j.out.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Fragmento de registro recuperado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobLogResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/sftp/list:
+    get:
+      summary: Listar contenido de un directorio remoto
+      description: Recupera la lista de archivos y directorios en la ruta remota especificada con sus metadatos (tamaño, permisos, fecha).
+      operationId: listRemoteFiles
+      tags:
+        - SFTP
+      parameters:
+        - name: path
+          in: query
+          required: false
+          description: Ruta del directorio remoto a inspeccionar.
+          schema:
+            type: string
+            default: '/'
+        - name: refresh
+          in: query
+          required: false
+          description: Forzar actualización descartando la caché en memoria.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Contenido del directorio recuperado.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RemoteFileInfo'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+  /api/sftp/upload:
+    post:
+      summary: Subir archivo al clúster remoto
+      description: Transfiere un archivo local o escribe una cadena de texto directamente en la ruta destino del clúster remoto.
+      operationId: uploadRemoteFile
+      tags:
+        - SFTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadFileRequest'
+      responses:
+        '200':
+          description: Archivo cargado satisfactoriamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileTransferResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+  /api/sftp/download:
+    post:
+      summary: Descargar archivo desde el clúster remoto
+      description: Descarga un archivo situado en el sistema de archivos remoto hacia una ruta en el almacenamiento local.
+      operationId: downloadRemoteFile
+      tags:
+        - SFTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadFileRequest'
+      responses:
+        '200':
+          description: Archivo descargado satisfactoriamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileTransferResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableError'
+
+  /api/agent/chat:
+    post:
+      summary: Interacción conversacional con streaming de respuestas
+      description: Envía mensajes y contexto científico al asistente de IA especializado, transmitiendo la respuesta en tiempo real mediante Server-Sent Events (SSE).
+      operationId: agentChat
+      tags:
+        - AI Assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentChatRequest'
+      responses:
+        '200':
+          description: Flujo de eventos de texto y llamadas a herramientas (text/event-stream).
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Eventos SSE con fragmentos de respuesta formateados en JSON.
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: EphemeralToken
+      description: Token criptográfico efímero generado por HPC Studio al arrancar el proceso Sidecar.
+
+  responses:
+    BadRequestError:
+      description: Solicitud malformada o parámetros no válidos.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    UnauthorizedError:
+      description: Token Bearer faltante, expirado o inválido.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    NotFoundError:
+      description: El recurso o archivo solicitado no fue encontrado.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    InternalServerError:
+      description: Error inesperado en la ejecución del servidor Sidecar.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    ServiceUnavailableError:
+      description: El servicio remoto o comando local de supercómputo no está disponible.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+  schemas:
+    ProblemDetails:
+      type: object
+      description: Estructura normalizada de respuesta de error conforme a RFC 7807 / RFC 9457.
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          format: uri
+          description: Identificador URI que clasifica el tipo de error.
+          example: https://hpc-studio.org/errors/bad-request
+        title:
+          type: string
+          description: Resumen breve y legible del problema.
+          example: Invalid Input Parameters
+        status:
+          type: integer
+          description: Código de estado HTTP retornado.
+          example: 400
+        detail:
+          type: string
+          description: Explicación detallada orientada a desarrolladores sobre la causa del fallo.
+          example: Field 'host' cannot be empty or contain whitespace.
+        instance:
+          type: string
+          format: uri
+          description: URI específica que identifica la ocurrencia del incidente.
+          example: /api/clusters/connect#err-10492
+
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - version
+        - uptime_seconds
+        - pid
+        - started_at
+        - system
+      properties:
+        status:
+          type: string
+          example: healthy
+        version:
+          type: string
+          example: 0.1.0
+        uptime_seconds:
+          type: number
+          example: 142.35
+        pid:
+          type: integer
+          example: 18420
+        started_at:
+          type: string
+          format: date-time
+          example: '2026-10-17T03:00:00Z'
+        system:
+          type: object
+          required:
+            - platform
+            - release
+            - machine
+            - python
+          properties:
+            platform:
+              type: string
+              example: Linux
+            release:
+              type: string
+              example: 6.8.0-45-generic
+            machine:
+              type: string
+              example: x86_64
+            python:
+              type: string
+              example: 3.12.3
+
+    ClusterEntry:
+      type: object
+      required:
+        - name
+        - hostname
+      properties:
+        name:
+          type: string
+          example: Quantum Mobile (VirtualBox)
+        hostname:
+          type: string
+          example: 127.0.0.1
+        port:
+          type: integer
+          default: 22
+          example: 2222
+        user:
+          type: string
+          example: max
+        identity_file:
+          type: string
+          nullable: true
+          example: ~/.ssh/id_ed25519
+        proxy_jump:
+          type: string
+          nullable: true
+        description:
+          type: string
+          example: Local simulation VM with Quantum ESPRESSO and Slurm
+
+    ClusterListResponse:
+      type: object
+      required:
+        - clusters
+        - presets
+        - is_connected
+      properties:
+        clusters:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterEntry'
+        presets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterEntry'
+        active_cluster:
+          type: object
+          nullable: true
+        is_connected:
+          type: boolean
+          example: true
+
+    ConnectClusterRequest:
+      type: object
+      required:
+        - host
+      properties:
+        host:
+          type: string
+          description: Nombre de host, dirección IP o alias definido en ~/.ssh/config.
+          example: 127.0.0.1
+        user:
+          type: string
+          nullable: true
+          description: Nombre de usuario en el clúster.
+          example: max
+        port:
+          type: integer
+          default: 22
+          minimum: 1
+          maximum: 65535
+          example: 2222
+        identity_file:
+          type: string
+          nullable: true
+          description: Ruta local a la clave privada de autenticación.
+          example: ~/.ssh/id_rsa
+        password:
+          type: string
+          nullable: true
+          description: Contraseña del usuario (opcional si se utiliza clave).
+          format: password
+          example: max
+        passphrase:
+          type: string
+          nullable: true
+          description: Frase de paso para descifrar la clave privada.
+          format: password
+        timeout:
+          type: integer
+          default: 10
+          minimum: 1
+          maximum: 60
+          example: 10
+
+    ConnectClusterResponse:
+      type: object
+      required:
+        - status
+        - host
+        - user
+        - port
+        - message
+      properties:
+        status:
+          type: string
+          example: connected
+        host:
+          type: string
+          example: 127.0.0.1
+        user:
+          type: string
+          example: max
+        port:
+          type: integer
+          example: 2222
+        message:
+          type: string
+          example: Successfully connected to 127.0.0.1:2222 as max
+
+    PingClusterRequest:
+      type: object
+      required:
+        - host
+      properties:
+        host:
+          type: string
+          example: 127.0.0.1
+        port:
+          type: integer
+          default: 22
+          minimum: 1
+          maximum: 65535
+          example: 2222
+        timeout:
+          type: number
+          default: 5.0
+          minimum: 0.5
+          maximum: 30.0
+          example: 5.0
+
+    PingClusterResponse:
+      type: object
+      required:
+        - host
+        - port
+        - reachable
+        - latency_ms
+      properties:
+        host:
+          type: string
+          example: 127.0.0.1
+        port:
+          type: integer
+          example: 2222
+        reachable:
+          type: boolean
+          example: true
+        latency_ms:
+          type: number
+          example: 1.15
+        error:
+          type: string
+          nullable: true
+
+    SlurmJob:
+      type: object
+      required:
+        - job_id
+        - name
+        - user
+        - state
+        - time_used
+        - time_limit
+        - nodes
+        - cpus
+      properties:
+        job_id:
+          type: string
+          example: '101'
+        name:
+          type: string
+          example: silicon_scf
+        user:
+          type: string
+          example: max
+        partition:
+          type: string
+          example: normal
+        state:
+          type: string
+          enum: [RUNNING, PENDING, COMPLETED, FAILED, CANCELLED, TIMEOUT, NODE_FAIL, UNKNOWN]
+          example: RUNNING
+        time_used:
+          type: string
+          example: '00:03:15'
+        time_limit:
+          type: string
+          example: '02:00:00'
+        nodes:
+          type: integer
+          example: 1
+        cpus:
+          type: integer
+          example: 4
+        reason:
+          type: string
+          example: None
+        work_dir:
+          type: string
+          example: /home/max/calculations/silicon
+        nodelist:
+          type: string
+          example: node01
+        raw_state:
+          type: string
+          example: R
+
+    SubmitJobRequest:
+      type: object
+      properties:
+        script_path:
+          type: string
+          nullable: true
+          description: Ruta absoluta o relativa al script batch (.sbatch / .slurm / .sh).
+          example: /home/max/calculations/run_scf.slurm
+        script_content:
+          type: string
+          nullable: true
+          description: Contenido textual del script si se envía en memoria.
+        work_dir:
+          type: string
+          nullable: true
+          description: Directorio de trabajo en el cual invocar el comando sbatch.
+          example: /home/max/calculations
+
+    SubmitJobResponse:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          example: submitted
+        job_id:
+          type: string
+          nullable: true
+          example: '102'
+        message:
+          type: string
+          example: Submitted batch job 102
+
+    CancelJobResponse:
+      type: object
+      required:
+        - status
+        - job_id
+        - message
+      properties:
+        status:
+          type: string
+          example: cancelled
+        job_id:
+          type: string
+          example: '102'
+        message:
+          type: string
+          example: Job 102 cancelled successfully
+
+    JobLogResponse:
+      type: object
+      required:
+        - job_id
+        - log_path
+        - lines
+        - content
+      properties:
+        job_id:
+          type: string
+          example: '101'
+        log_path:
+          type: string
+          example: /home/max/calculations/slurm-101.out
+        lines:
+          type: integer
+          example: 100
+        content:
+          type: string
+          description: Contenido textual de las líneas finales del archivo de salida.
+          example: 'iteration # 5 ... total energy = -15.84562011 Ry ... JOB DONE.'
+
+    RemoteFileInfo:
+      type: object
+      required:
+        - name
+        - path
+        - is_dir
+        - size
+        - mtime
+        - permissions_str
+      properties:
+        name:
+          type: string
+          example: silicon_diamond.cif
+        path:
+          type: string
+          example: /home/max/structures/silicon_diamond.cif
+        is_dir:
+          type: boolean
+          example: false
+        size:
+          type: integer
+          description: Tamaño en bytes.
+          example: 2450
+        mtime:
+          type: number
+          description: Marca de tiempo UNIX de última modificación.
+          example: 1729124400
+        permissions_str:
+          type: string
+          example: -rw-r--r--
+        owner:
+          type: string
+          nullable: true
+          example: max
+        group:
+          type: string
+          nullable: true
+          example: max
+
+    UploadFileRequest:
+      type: object
+      required:
+        - remote_path
+      properties:
+        local_path:
+          type: string
+          nullable: true
+          description: Ruta local del archivo fuente.
+          example: ./samples/silicon_scf.in
+        remote_path:
+          type: string
+          description: Ruta de destino en el sistema de archivos del clúster.
+          example: /home/max/calculations/silicon_scf.in
+        content:
+          type: string
+          nullable: true
+          description: Contenido textual directo a almacenar en el archivo remoto.
+
+    DownloadFileRequest:
+      type: object
+      required:
+        - remote_path
+        - local_path
+      properties:
+        remote_path:
+          type: string
+          description: Ruta del archivo en el clúster a descargar.
+          example: /home/max/calculations/silicon.out
+        local_path:
+          type: string
+          description: Ruta local donde se almacenará el archivo descargado.
+          example: ./results/silicon.out
+
+    FileTransferResponse:
+      type: object
+      required:
+        - status
+        - remote_path
+        - message
+      properties:
+        status:
+          type: string
+          example: completed
+        remote_path:
+          type: string
+          example: /home/max/calculations/silicon_scf.in
+        bytes_transferred:
+          type: integer
+          nullable: true
+          example: 1048576
+        message:
+          type: string
+          example: Transfer completed successfully
+
+    AgentChatMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [user, assistant, system]
+          example: user
+        content:
+          type: string
+          example: Diagnostica por qué mi cálculo SCF oscila en energía.
+
+    AgentChatRequest:
+      type: object
+      required:
+        - messages
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentChatMessage'
+        context:
+          type: object
+          description: Metadatos adicionales como archivo activo, clúster seleccionado o job ID en foco.
+          additionalProperties: true
+          example:
+            active_file: silicon_scf.in
+            cluster: Quantum Mobile
+            job_id: '101'

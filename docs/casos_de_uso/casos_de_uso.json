@@ -1,0 +1,787 @@
+[
+  {
+    "id": "CU-01",
+    "nombre": "Conectar a Clúster Remoto y Quantum Mobile",
+    "breve_descripcion": "Permite al investigador establecer conexión segura por SSH/SFTP con un supercomputador remoto o la máquina virtual local Quantum Mobile para iniciar la orquestación de cálculos.",
+    "actor_principal": "Investigador Computacional",
+    "actores_secundarios": [
+      "Servidor SSH Remoto",
+      "Quantum Mobile VM / Docker",
+      "Sidecar Daemon Python"
+    ],
+    "requisitos_funcionales_asociados": [
+      "RF-02",
+      "RF-03",
+      "RF-20"
+    ],
+    "objetivos": [
+      "Autenticar al usuario contra el nodo de acceso del clúster mediante SSH.",
+      "Habilitar el canal seguro de comandos y el subsistema SFTP para transferencia de archivos.",
+      "Verificar la disponibilidad y latencia de red del clúster o máquina virtual seleccionada."
+    ],
+    "precondiciones": [
+      "El IDE HPC Studio y el demonio sidecar se encuentran en estado RUNNING.",
+      "El archivo ~/.ssh/config contiene las directivas del host o el usuario ha seleccionado el preset de Quantum Mobile.",
+      "El servicio SSH del destino está activo y accesible por red."
+    ],
+    "datos_requeridos": [
+      "Hostname o dirección IP de destino (ej. 127.0.0.1 para Quantum Mobile).",
+      "Puerto TCP (ej. 2222 para Quantum Mobile, 22 para clústeres estándar).",
+      "Nombre de usuario y llave criptográfica privada autorizada."
+    ],
+    "flujo_principal": [
+      {
+        "paso": 1,
+        "actor": "Investigador Computacional",
+        "accion": "Abre el contenedor 'Remote Clusters & SSH' en la barra lateral del IDE y visualiza la lista de clústeres disponibles."
+      },
+      {
+        "paso": 2,
+        "actor": "Sistema",
+        "accion": "Lee la configuración de ~/.ssh/config y los perfiles guardados, mostrando indicadores de estado y latencia de red para cada nodo."
+      },
+      {
+        "paso": 3,
+        "actor": "Investigador Computacional",
+        "accion": "Hace clic en la acción 'Connect SSH Terminal' o selecciona 'Connect to Quantum Mobile'."
+      },
+      {
+        "paso": 4,
+        "actor": "Sistema",
+        "accion": "Despacha la solicitud de conexión al Sidecar Daemon Python transmitiendo el token de autenticación Bearer efímero."
+      },
+      {
+        "paso": 5,
+        "actor": "Sistema",
+        "accion": "El módulo SSHClientManager establece el canal de transporte seguro cifrado con la llave privada y abre una sesión de shell o túnel."
+      },
+      {
+        "paso": 6,
+        "actor": "Sistema",
+        "accion": "Abre una terminal integrada en el IDE conectada al clúster remoto y actualiza el icono de estado a en línea ('online')."
+      }
+    ],
+    "flujos_alternativos": [
+      {
+        "paso": "3a",
+        "actor": "Investigador Computacional",
+        "accion": "Selecciona 'Ping Cluster Latency' en un clúster específico."
+      },
+      {
+        "paso": "4a",
+        "actor": "Sistema",
+        "accion": "Mide el tiempo de ida y vuelta TCP contra el socket remoto y presenta la métrica en milisegundos en la descripción del árbol."
+      }
+    ],
+    "excepciones": [
+      {
+        "condicion": "El puerto 2222 de Quantum Mobile no responde por estar la máquina virtual apagada.",
+        "respuesta": "El sistema muestra una notificación de advertencia con el botón 'Open Quantum Mobile Setup Guide' para orientar el encendido en VirtualBox."
+      },
+      {
+        "condicion": "Fallo de autenticación por llave rechazada o usuario incorrecto.",
+        "respuesta": "El sistema captura el error SSHAuthenticationException y solicita al usuario revisar la ruta del archivo IdentityFile en la configuración."
+      }
+    ],
+    "postcondiciones": [
+      "La sesión SSH queda establecida y enlazada al identificador del clúster en memoria.",
+      "Las vistas de Slurm Queue y SFTP Explorer quedan habilitadas para operar sobre el host activo."
+    ]
+  },
+  {
+    "id": "CU-02",
+    "nombre": "Monitorear Cola de Trabajos Slurm",
+    "breve_descripcion": "Permite al usuario inspeccionar de forma continua los trabajos encolados y en ejecución en el clúster remoto, así como solicitar la cancelación de trabajos propios.",
+    "actor_principal": "Investigador Computacional",
+    "actores_secundarios": [
+      "Planificador Slurm Remoto",
+      "Sidecar Daemon Python",
+      "WebSocket Event Hub"
+    ],
+    "requisitos_funcionales_asociados": [
+      "RF-04",
+      "RF-06"
+    ],
+    "objetivos": [
+      "Visualizar el estado actual (RUNNING, PENDING, COMPLETED) de las tareas en el supercomputador.",
+      "Consultar el consumo de CPUs, partición asignada y tiempo transcurrido de cada trabajo.",
+      "Cancelar de manera segura trabajos que presenten divergencia o error mediante scancel."
+    ],
+    "precondiciones": [
+      "Existe una conexión SSH activa con un clúster configurado con Slurm.",
+      "El daemon sidecar tiene abierta la suscripción de eventos por WebSocket con el IDE."
+    ],
+    "datos_requeridos": [
+      "Identificador del clúster remoto activo.",
+      "Parámetros de filtrado opcionales (nombre de usuario, partición)."
+    ],
+    "flujo_principal": [
+      {
+        "paso": 1,
+        "actor": "Investigador Computacional",
+        "accion": "Expande la vista 'Slurm Queue Monitor' en el panel de HPC Studio."
+      },
+      {
+        "paso": 2,
+        "actor": "Sistema",
+        "accion": "El demonio sidecar despacha periódicamente el comando 'squeue' formateado a través del canal SSH activo."
+      },
+      {
+        "paso": 3,
+        "actor": "Sistema",
+        "accion": "Parsea la respuesta tabular y envía la lista estructurada de objetos SlurmJobData al frontend vía WebSocket."
+      },
+      {
+        "paso": 4,
+        "actor": "Investigador Computacional",
+        "accion": "Revisa los trabajos listados, observando iconos de colores (verde para RUNNING, amarillo para PENDING)."
+      },
+      {
+        "paso": 5,
+        "actor": "Investigador Computacional",
+        "accion": "Hace clic derecho en un trabajo en ejecución y selecciona la opción 'Cancel Job (scancel)'."
+      },
+      {
+        "paso": 6,
+        "actor": "Sistema",
+        "accion": "Solicita confirmación al usuario, ejecuta 'scancel <job_id>' en el clúster y actualiza el árbol visual."
+      }
+    ],
+    "flujos_alternativos": [
+      {
+        "paso": "2a",
+        "actor": "Investigador Computacional",
+        "accion": "Presiona el botón de recarga manual 'Refresh Slurm Queue'."
+      },
+      {
+        "paso": "3a",
+        "actor": "Sistema",
+        "accion": "Fuerza la ejecución inmediata de squeue omitiendo el intervalo de espera automático."
+      }
+    ],
+    "excepciones": [
+      {
+        "condicion": "El comando squeue no está disponible en el PATH del nodo remoto.",
+        "respuesta": "El sistema notifica que el clúster no parece contar con un planificador Slurm instalado o accesible."
+      },
+      {
+        "condicion": "El trabajo ya finalizó cuando se envía la orden de cancelación.",
+        "respuesta": "El sistema captura la respuesta de Slurm e informa al usuario que el trabajo ya no se encuentra en la cola activa."
+      }
+    ],
+    "postcondiciones": [
+      "La vista de cola refleja el estado en tiempo real de los trabajos.",
+      "El trabajo cancelado transiciona a estado CANCELLED."
+    ]
+  },
+  {
+    "id": "CU-03",
+    "nombre": "Enviar Cálculo Batch de Quantum ESPRESSO a Slurm",
+    "breve_descripcion": "Permite al investigador estructurar o validar un script de simulación y despacharlo al gestor de colas del clúster remoto mediante sbatch.",
+    "actor_principal": "Investigador Computacional",
+    "actores_secundarios": [
+      "Planificador Slurm Remoto",
+      "Sidecar Daemon Python",
+      "Motor SFTP"
+    ],
+    "requisitos_funcionales_asociados": [
+      "RF-05",
+      "RF-12",
+      "RF-13",
+      "RF-14",
+      "RF-15"
+    ],
+    "objetivos": [
+      "Validar la sintaxis y directivas #SBATCH del script antes del envío.",
+      "Transferir el archivo de entrada y dependencias (pseudopotenciales) al directorio de trabajo remoto.",
+      "Encolar formalmente el cálculo y obtener el identificador de trabajo asignado (Job ID)."
+    ],
+    "precondiciones": [
+      "El usuario tiene abierto un archivo .slurm o .sbatch con las directivas de cómputo y llamada a pw.x.",
+      "Existe conexión SSH/SFTP establecida con el clúster de destino."
+    ],
+    "datos_requeridos": [
+      "Ruta del script de cálculo local o remoto.",
+      "Número de nodos, tareas MPI, partición y tiempo límite de ejecución definidos en directivas #SBATCH."
+    ],
+    "flujo_principal": [
+      {
+        "paso": 1,
+        "actor": "Investigador Computacional",
+        "accion": "Edita el archivo de cálculo usando snippets automáticos (ej. 'qe-scf') y directivas Slurm con resaltado sintáctico."
+      },
+      {
+        "paso": 2,
+        "actor": "Investigador Computacional",
+        "accion": "Ejecuta el comando 'HPC Studio: Submit Slurm Job (sbatch)' desde el editor o la barra de herramientas."
+      },
+      {
+        "paso": 3,
+        "actor": "Sistema",
+        "accion": "Verifica que las tarjetas de entrada y pseudopotenciales requeridos existan en la ruta de simulación."
+      },
+      {
+        "paso": 4,
+        "actor": "Sistema",
+        "accion": "Sube el script al clúster remoto vía SFTP si se encuentra almacenado localmente."
+      },
+      {
+        "paso": 5,
+        "actor": "Sistema",
+        "accion": "Ejecuta 'sbatch <script>' a través del canal SSH y captura la salida estándar del planificador."
+      },
+      {
+        "paso": 6,
+        "actor": "Sistema",
+        "accion": "Extrae el Job ID numérico, muestra una notificación emergente de éxito y añade el trabajo al Slurm Watchdog."
+      }
+    ],
+    "flujos_alternativos": [
+      {
+        "paso": "3a",
+        "actor": "Sistema",
+        "accion": "Detecta errores de sintaxis en el archivo .in o directivas faltantes."
+      },
+      {
+        "paso": "4a",
+        "actor": "Investigador Computacional",
+        "accion": "Corrige las advertencias reportadas en el panel de problemas antes de proceder con el envío."
+      }
+    ],
+    "excepciones": [
+      {
+        "condicion": "Slurm rechaza el envío por exceder el tiempo máximo de la partición o límites de memoria.",
+        "respuesta": "El sistema despliega el mensaje de error emitido por sbatch en stderr y sugiere ajustar las directivas #SBATCH."
+      }
+    ],
+    "postcondiciones": [
+      "El nuevo cálculo queda registrado en la cola de Slurm del clúster con estado PENDING.",
+      "El árbol de monitoreo refleja el nuevo Job ID de forma inmediata."
+    ]
+  },
+  {
+    "id": "CU-04",
+    "nombre": "Seguir Salida de Cálculo en Vivo (Live Log Streamer)",
+    "breve_descripcion": "Permite transmitir y visualizar en tiempo real las líneas de registro y salida estándar generadas por una simulación en curso en un nodo de cómputo.",
+    "actor_principal": "Investigador Computacional",
+    "actores_secundarios": [
+      "Nodo de Cómputo Remoto",
+      "RemoteLogStreamer (Sidecar)",
+      "Canal WebSocket"
+    ],
+    "requisitos_funcionales_asociados": [
+      "RF-07"
+    ],
+    "objetivos": [
+      "Inspeccionar el avance de las iteraciones autoconsistentes (SCF) o relajación atómica en vivo.",
+      "Detectar tempranamente errores de convergencia electrónica o abortos de ejecución.",
+      "Pausar o reanudar el scroll automático de la salida de terminal sin interrumpir la simulación."
+    ],
+    "precondiciones": [
+      "El trabajo Slurm se encuentra en estado RUNNING en el clúster.",
+      "El archivo de registro de salida (ej. slurm-12345.out o pw.out) existe en el sistema de archivos remoto."
+    ],
+    "datos_requeridos": [
+      "Identificador de trabajo Slurm o ruta completa del archivo de log remoto."
+    ],
+    "flujo_principal": [
+      {
+        "paso": 1,
+        "actor": "Investigador Computacional",
+        "accion": "Hace clic en el icono 'Stream Live Output (tail -f)' junto al trabajo activo en la vista de Slurm."
+      },
+      {
+        "paso": 2,
+        "actor": "Sistema",
+        "accion": "El módulo RemoteLogStreamer en el sidecar inicia un canal SSH no bloqueante ejecutando 'tail -n 100 -f <archivo>'."
+      },
+      {
+        "paso": 3,
+        "actor": "Sistema",
+        "accion": "Abre un panel de salida dedicado 'HPC Studio: Job Output Stream' en la zona inferior del IDE."
+      },
+      {
+        "paso": 4,
+        "actor": "Sistema",
+        "accion": "Transmite continuamente las nuevas líneas a través de WebSocket y las renderiza en el terminal con latencia menor a 200 ms."
+      },
+      {
+        "paso": 5,
+        "actor": "Investigador Computacional",
+        "accion": "Monitorea la convergencia de energía de Fermi y la reducción de fuerzas en cada paso iónico."
+      }
+    ],
+    "flujos_alternativos": [
+      {
+        "paso": "4a",
+        "actor": "Investigador Computacional",
+        "accion": "Presiona el botón de 'Pausa' en el visor de logs para inspeccionar una iteración previa."
+      },
+      {
+        "paso": "5a",
+        "actor": "Sistema",
+        "accion": "Detiene el desplazamiento automático mientras continúa acumulando los eventos en el buffer de memoria."
+      }
+    ],
+    "excepciones": [
+      {
+        "condicion": "El archivo de log aún no ha sido creado porque el nodo de cómputo apenas está asignando recursos.",
+        "respuesta": "El sistema reintenta la lectura cada 2 segundos mostrando el mensaje 'Esperando asignación de I/O en el nodo de cómputo'."
+      }
+    ],
+    "postcondiciones": [
+      "El canal de streaming permanece activo hasta que el usuario cierra el panel o el comando tail finaliza al concluir el trabajo."
+    ]
+  },
+  {
+    "id": "CU-05",
+    "nombre": "Visualizar e Interactuar con Cristal 3D (.cif)",
+    "breve_descripcion": "Permite al investigador abrir archivos cristalográficos CIF y visualizar de forma tridimensional e interactiva la celda unitaria y posiciones atómicas.",
+    "actor_principal": "Investigador en Ciencia de Materiales",
+    "actores_secundarios": [
+      "Structure3DEditorProvider (TypeScript)",
+      "Motor WebGL Webview"
+    ],
+    "requisitos_funcionales_asociados": [
+      "RF-10",
+      "RF-19"
+    ],
+    "objetivos": [
+      "Renderizar con precisión los parámetros de red (a, b, c, alfa, beta, gamma) y la celda unitaria periódica.",
+      "Permitir la inspección orbital, rotación, zoom y visualización de especies atómicas por colores CPK.",
+      "Sincronizar reactivamente la geometría 3D en tiempo real cuando el archivo de texto subyacente sea editado."
+    ],
+    "precondiciones": [
+      "Existe un archivo con extensión .cif en el espacio de trabajo local o remoto.",
+      "La tarjeta gráfica del equipo soporta aceleración por hardware WebGL 2.0."
+    ],
+    "datos_requeridos": [
+      "Contenido en texto estructurado del archivo .cif con bucles de simetría y coordenadas fraccionarias."
+    ],
+    "flujo_principal": [
+      {
+        "paso": 1,
+        "actor": "Investigador en Ciencia de Materiales",
+        "accion": "Hace doble clic sobre un archivo .cif en el explorador de archivos del IDE."
+      },
+      {
+        "paso": 2,
+        "actor": "Sistema",
+        "accion": "Structure3DEditorProvider intercepta el evento e instancia el Webview Custom Editor con scripts WebGL autorizados."
+      },
+      {
+        "paso": 3,
+        "actor": "Sistema",
+        "accion": "Parsea los bloques 'loop_' y coordenadas cristalográficas, proyectándolas en coordenadas cartesianas en Angstroms."
+      },
+      {
+        "paso": 4,
+        "actor": "Sistema",
+        "accion": "Genera la escena 3D renderizando las esferas atómicas y el paralelepípedo delimitador de la celda unitaria."
+      },
+      {
+        "paso": 5,
+        "actor": "Investigador en Ciencia de Materiales",
+        "accion": "Interactúa con el ratón rotando la estructura, cambiando el estilo de visualización o abriendo la vista en paralelo ('Side by Side')."
+      }
+    ],
+    "flujos_alternativos": [
+      {
+        "paso": "5a",
+        "actor": "Investigador en Ciencia de Materiales",
+        "accion": "Edita una coordenada fraccionaria en la vista de texto lateral."
+      },
+      {
+        "paso": "6a",
+        "actor": "Sistema",
+        "accion": "El Webview recibe el mensaje reactivo 'update' y recoloca la esfera atómica instantáneamente sin resetear la cámara."
+      }
+    ],
+    "excepciones": [
+      {
+        "condicion": "El archivo CIF posee sintaxis inválida o definiciones de celda faltantes.",
+        "respuesta": "El visor despliega una tarjeta de error con indicación de la línea fallida y ofrece la opción 'Reopen as Text'."
+      }
+    ],
+    "postcondiciones": [
+      "El modelo cristalino permanece cargado e interactivo en memoria de la GPU."
+    ]
+  },
+  {
+    "id": "CU-06",
+    "nombre": "Medir Distancias Atómicas en Molécula (.xyz)",
+    "breve_descripcion": "Permite abrir archivos moleculares XYZ, reconstruir enlaces químicos de acuerdo a radios covalentes y medir distancias interatómicas mediante selección interactiva.",
+    "actor_principal": "Investigador en Ciencia de Materiales",
+    "actores_secundarios": [
+      "Structure3DEditorProvider",
+      "Calculador de Métricas Moleculares"
+    ],
+    "requisitos_funcionales_asociados": [
+      "RF-11",
+      "RF-19"
+    ],
+    "objetivos": [
+      "Cargar geometrías moleculares y nanoclusters a partir de coordenadas cartesianas.",
+      "Calcular y visualizar enlaces covalentes entre pares de átomos automáticamente.",
+      "Medir con precisión de milésimas de Angstrom distancias entre pares de átomos seleccionados."
+    ],
+    "precondiciones": [
+      "Archivo de formato estándar .xyz con cabecera de número de átomos y lista de elementos con coordenadas X, Y, Z."
+    ],
+    "datos_requeridos": [
+      "Archivo .xyz con valores numéricos decimales en formato Angstroms."
+    ],
+    "flujo_principal": [
+      {
+        "paso": 1,
+        "actor": "Investigador en Ciencia de Materiales",
+        "accion": "Abre un archivo de coordenadas moleculares .xyz en el editor de HPC Studio."
+      },
+      {
+        "paso": 2,
+        "actor": "Sistema",
+        "accion": "Procesa la tabla de coordenadas cartesianas y computa la matriz de distancias euclidianas interatómicas."
+      },
+      {
+        "paso": 3,
+        "actor": "Sistema",
+        "accion": "Renderiza los átomos como esferas y traza cilindros de enlace para átomos adyacentes según radios covalentes."
+      },
+      {
+        "paso": 4,
+        "actor": "Investigador en Ciencia de Materiales",
+        "accion": "Activa el modo de medición y hace clic sobre un átomo de origen y un átomo de destino."
+      },
+      {
+        "paso": 5,
+        "actor": "Sistema",
+        "accion": "Resalta ambos átomos con un aro de selección y dibuja una línea de cota con la distancia calculada en Angstroms (ej. '1.42 Å')."
+      }
+    ],
+    "flujos_alternativos": [
+      {
+        "paso": "4a",
+        "actor": "Investigador en Ciencia de Materiales",
+        "accion": "Selecciona un tercer átomo consecutivo."
+      },
+      {
+        "paso": "5a",
+        "actor": "Sistema",
+        "accion": "Calcula y presenta el ángulo de enlace formado por la tríada atómica en grados sexagesimales."
+      }
+    ],
+    "excepciones": [
+      {
+        "condicion": "La cantidad de líneas en el cuerpo del archivo difiere del conteo declarado en la primera línea.",
+        "respuesta": "El sistema advierte la inconsistencia de conteo en la barra de mensajes y renderiza únicamente los átomos leídos."
+      }
+    ],
+    "postcondiciones": [
+      "Las etiquetas de medición métrica permanecen visibles en la escena gráfica mientras el usuario inspecciona la molécula."
+    ]
+  },
+  {
+    "id": "CU-07",
+    "nombre": "Transferir Archivos mediante Explorador SFTP",
+    "breve_descripcion": "Permite al usuario examinar el sistema de archivos remoto de un clúster y transferir archivos y directorios de simulación mediante acciones de subida y bajada.",
+    "actor_principal": "Investigador Computacional",
+    "actores_secundarios": [
+      "Subsistema SFTP Remoto",
+      "TransferQueue (Sidecar)"
+    ],
+    "requisitos_funcionales_asociados": [
+      "RF-08",
+      "RF-09"
+    ],
+    "objetivos": [
+      "Navegar por las carpetas del clúster remoto (directorio $HOME, $SCRATCH o almacenamiento compartido).",
+      "Subir archivos de entrada, pseudopotenciales y scripts locales hacia el clúster.",
+      "Descargar archivos de resultados (.out, densidades de carga, archivos de bandas) a la máquina de trabajo local."
+    ],
+    "precondiciones": [
+      "La sesión SSH con el clúster está autenticada y el subsistema SFTP se encuentra activo en el servidor."
+    ],
+    "datos_requeridos": [
+      "Rutas de archivos de origen y directorios de destino."
+    ],
+    "flujo_principal": [
+      {
+        "paso": 1,
+        "actor": "Investigador Computacional",
+        "accion": "Despliega la vista 'Cluster File Transfer (SFTP)' en el workbench de HPC Studio."
+      },
+      {
+        "paso": 2,
+        "actor": "Sistema",
+        "accion": "Invoca listdir_attr sobre el directorio inicial remoto y presenta los nodos clasificados con iconos específicos."
+      },
+      {
+        "paso": 3,
+        "actor": "Investigador Computacional",
+        "accion": "Selecciona un archivo local y hace clic en 'Upload Local File' indicando el directorio remoto de destino."
+      },
+      {
+        "paso": 4,
+        "actor": "Sistema",
+        "accion": "Encola la tarea en TransferQueue y transfiere los datos en bloques de 32 KB mostrando la barra de progreso."
+      },
+      {
+        "paso": 5,
+        "actor": "Sistema",
+        "accion": "Verifica la integridad de tamaño al finalizar y actualiza la vista remota de archivos."
+      }
+    ],
+    "flujos_alternativos": [
+      {
+        "paso": "3a",
+        "actor": "Investigador Computacional",
+        "accion": "Hace clic derecho en un archivo de salida remoto y selecciona 'Download Remote File'."
+      },
+      {
+        "paso": "4a",
+        "actor": "Sistema",
+        "accion": "Descarga el archivo al directorio del espacio de trabajo local notificando al completar la recepción."
+      }
+    ],
+    "excepciones": [
+      {
+        "condicion": "Espacio en disco insuficiente en el destino o error de cuota excedida (EDQUOT).",
+        "respuesta": "El sistema interrumpe la transferencia y emite una alerta indicando que la cuota de almacenamiento del clúster está al 100%."
+      },
+      {
+        "condicion": "Permisos denegados para escribir en el directorio seleccionado.",
+        "respuesta": "El sistema notifica el error de permisos UNIX (Permission Denied) y solicita al usuario seleccionar un directorio con privilegios de escritura."
+      }
+    ],
+    "postcondiciones": [
+      "Los archivos transferidos quedan íntegros y sincronizados en el destino con sus permisos preservados."
+    ]
+  },
+  {
+    "id": "CU-08",
+    "nombre": "Consultar Asistente de IA Cuántica vía Chat Nativo",
+    "breve_descripcion": "Permite interactuar en lenguaje natural con el agente de inteligencia artificial Google Antigravity para resolver dudas sobre DFT, corregir scripts y diagnosticar fallos.",
+    "actor_principal": "Investigador Computacional",
+    "actores_secundarios": [
+      "Antigravity CLI (agy)",
+      "Bridge de Agente (TypeScript/Python)"
+    ],
+    "requisitos_funcionales_asociados": [
+      "RF-17",
+      "RF-18"
+    ],
+    "objetivos": [
+      "Obtener asistencia en la formulación de parámetros físicos de cálculo (cutoffs, k-points, funcionales).",
+      "Diagnosticar la causa raíz de mensajes de error o advertencias en simulaciones fallidas.",
+      "Interactuar mediante una interfaz de chat con soporte de Markdown, bloques de código e historial de conversación."
+    ],
+    "precondiciones": [
+      "El ejecutable CLI de Antigravity (agy) está instalado y accesible en el sistema.",
+      "El IDE tiene configurada la ruta en hpc-studio.antigravityPath o detectada en el PATH."
+    ],
+    "datos_requeridos": [
+      "Mensaje o consulta en lenguaje natural ingresada por el usuario en el cuadro de texto del chat."
+    ],
+    "flujo_principal": [
+      {
+        "paso": 1,
+        "actor": "Investigador Computacional",
+        "accion": "Abre el panel de chat de HPC Studio o ejecuta el comando 'HPC Studio: Invoke Antigravity Agent'."
+      },
+      {
+        "paso": 2,
+        "actor": "Investigador Computacional",
+        "accion": "Escribe una consulta solicitando recomendaciones de cutoffs de energía para un cálculo de Silicio en Quantum ESPRESSO."
+      },
+      {
+        "paso": 3,
+        "actor": "Sistema",
+        "accion": "AntigravityAgentBridge invoca el proceso agy con el prompt del usuario y los metadatos de la sesión activa."
+      },
+      {
+        "paso": 4,
+        "actor": "Sistema",
+        "accion": "El agente procesa la solicitud, consulta herramientas de validación si es necesario y transmite el flujo de razonamiento."
+      },
+      {
+        "paso": 5,
+        "actor": "Sistema",
+        "accion": "Renderiza la respuesta estructurada en el panel de chat con tablas de pseudopotenciales y bloques de código listos para insertar."
+      }
+    ],
+    "flujos_alternativos": [
+      {
+        "paso": "2a",
+        "actor": "Investigador Computacional",
+        "accion": "Selecciona un bloque de error en el editor y presiona 'Explicar con Antigravity'."
+      },
+      {
+        "paso": "3a",
+        "actor": "Sistema",
+        "accion": "Adjunta automáticamente el texto del error como contexto del prompt y genera una propuesta de remediación."
+      }
+    ],
+    "excepciones": [
+      {
+        "condicion": "El binario agy no se encuentra en el sistema operativo.",
+        "respuesta": "El sistema despliega una notificación informativa con instrucciones para la instalación de la suite Antigravity."
+      }
+    ],
+    "postcondiciones": [
+      "La sesión de conversación se mantiene viva permitiendo preguntas de seguimiento contextuales."
+    ]
+  },
+  {
+    "id": "CU-09",
+    "nombre": "Invocar Herramientas de Clúster mediante Servidor MCP",
+    "breve_descripcion": "Permite que agentes inteligentes externos o internos consulten y ejecuten de forma autónoma y controlada 9 herramientas especializadas de supercómputo vía MCP.",
+    "actor_principal": "Agente Autónomo de Inteligencia Artificial",
+    "actores_secundarios": [
+      "Investigador Computacional (Supervisor)",
+      "Servidor MCP stdio (hpc_studio.mcp)"
+    ],
+    "requisitos_funcionales_asociados": [
+      "RF-16",
+      "RF-17"
+    ],
+    "objetivos": [
+      "Exponer una interfaz estandarizada y segura para que modelos LLM interactúen con Slurm, QE y SFTP.",
+      "Validar argumentos de herramientas contra esquemas JSON estrictos previniendo inyección de comandos.",
+      "Retornar resultados enriquecidos y estructurados que faciliten el razonamiento automatizado."
+    ],
+    "precondiciones": [
+      "El servidor MCP de HPC Studio se ejecuta en modo stdio o subproceso.",
+      "El cliente MCP ha completado satisfactoriamente el protocolo de handshake de inicialización."
+    ],
+    "datos_requeridos": [
+      "Mensaje JSON-RPC 2.0 solicitando 'tools/call' con el nombre de la herramienta y diccionario de argumentos."
+    ],
+    "flujo_principal": [
+      {
+        "paso": 1,
+        "actor": "Agente Autónomo de Inteligencia Artificial",
+        "accion": "Envía una solicitud JSON-RPC sobre stdin invocando 'hpc_slurm_queue' con el filtro de usuario actual."
+      },
+      {
+        "paso": 2,
+        "actor": "Sistema",
+        "accion": "El servidor MCP valida la solicitud contra ToolRegistry y ToolInputSchema."
+      },
+      {
+        "paso": 3,
+        "actor": "Sistema",
+        "accion": "El manejador ejecuta la consulta a Slurm utilizando las conexiones seguras del middleware."
+      },
+      {
+        "paso": 4,
+        "actor": "Sistema",
+        "accion": "Empaqueta la lista de trabajos activos en un objeto CallToolResult con bloques TextContent."
+      },
+      {
+        "paso": 5,
+        "actor": "Agente Autónomo de Inteligencia Artificial",
+        "accion": "Recibe la respuesta en stdout y elabora un informe contextual para el investigador humano."
+      }
+    ],
+    "flujos_alternativos": [
+      {
+        "paso": "1a",
+        "actor": "Agente Autónomo de Inteligencia Artificial",
+        "accion": "Invoca 'hpc_inspect_structure' pasando la ruta de un archivo .cif recién calculado."
+      },
+      {
+        "paso": "2a",
+        "actor": "Sistema",
+        "accion": "Calcula el volumen de la celda y densidad atómica, retornando las métricas cristalográficas al agente."
+      }
+    ],
+    "excepciones": [
+      {
+        "condicion": "Argumentos con tipos o campos obligatorios faltantes según el esquema.",
+        "respuesta": "El servidor retorna un CallToolResult con isError=True y mensaje explicativo del fallo de validación."
+      }
+    ],
+    "postcondiciones": [
+      "La operación sobre el clúster se registra en el log de auditoría del sistema.",
+      "El agente dispone de los datos formales para continuar su cadena de razonamiento."
+    ]
+  },
+  {
+    "id": "CU-10",
+    "nombre": "Gestionar Servidor Sidecar Python desde la Barra de Estado",
+    "breve_descripcion": "Permite al usuario monitorear el estado operativo del daemon backend en la barra de estado y realizar acciones manuales de parada, arranque o reinicio.",
+    "actor_principal": "Investigador Computacional",
+    "actores_secundarios": [
+      "SidecarSupervisor",
+      "HPCStatusBarItem"
+    ],
+    "requisitos_funcionales_asociados": [
+      "RF-01",
+      "RF-20"
+    ],
+    "objetivos": [
+      "Proveer visibilidad continua del estado del servidor local (RUNNING, STOPPED, STARTING, ERROR).",
+      "Permitir el reinicio rápido del demonio en caso de ajuste de dependencias o recarga de configuración.",
+      "Mostrar métricas operativas como el puerto TCP asignado y la salud del proceso."
+    ],
+    "precondiciones": [
+      "El IDE HPC Studio se encuentra en ejecución."
+    ],
+    "datos_requeridos": [
+      "Acción de clic sobre el elemento de la barra de estado o selección de comando en la paleta de comandos."
+    ],
+    "flujo_principal": [
+      {
+        "paso": 1,
+        "actor": "Investigador Computacional",
+        "accion": "Observa el indicador de la barra de estado con el icono '$(server) HPC Studio: Running [8000]'."
+      },
+      {
+        "paso": 2,
+        "actor": "Investigador Computacional",
+        "accion": "Hace clic sobre el elemento en la barra de estado."
+      },
+      {
+        "paso": 3,
+        "actor": "Sistema",
+        "accion": "Despliega un menú emergente de selección rápida con opciones: 'Restart Server', 'Stop Server', 'Show Logs', 'Server Details'."
+      },
+      {
+        "paso": 4,
+        "actor": "Investigador Computacional",
+        "accion": "Selecciona la opción 'Restart Server'."
+      },
+      {
+        "paso": 5,
+        "actor": "Sistema",
+        "accion": "SidecarSupervisor envía señal de detención limpia, libera el socket, arranca una nueva instancia con nuevo token y reconecta los clientes."
+      },
+      {
+        "paso": 6,
+        "actor": "Sistema",
+        "accion": "Actualiza la barra de estado reflejando el nuevo PID y puerto, confirmando el reinicio con una notificación sutil."
+      }
+    ],
+    "flujos_alternativos": [
+      {
+        "paso": "4a",
+        "actor": "Investigador Computacional",
+        "accion": "Selecciona 'Show Logs'."
+      },
+      {
+        "paso": "5a",
+        "actor": "Sistema",
+        "accion": "Enfoca el canal de salida 'HPC Studio Backend' mostrando las trazas completas de depuración de FastAPI y Uvicorn."
+      }
+    ],
+    "excepciones": [
+      {
+        "condicion": "El proceso backend no responde a SIGTERM transcurrido el tiempo límite de apagado.",
+        "respuesta": "El supervisor escala la señal a SIGKILL para forzar la liberación de recursos y proceder con un arranque limpio."
+      }
+    ],
+    "postcondiciones": [
+      "El nuevo proceso sidecar queda activo, saludable y enlazado con token criptográfico válido."
+    ]
+  }
+]

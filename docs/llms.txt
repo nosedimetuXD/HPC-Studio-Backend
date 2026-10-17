@@ -1,0 +1,62 @@
+# HPC Studio — Machine-Readable Documentation Index (`llms.txt`)
+
+> HPC Studio is an integrated development environment (IDE) and sidecar supervisor architecture specifically engineered for high-performance computing (HPC), quantum materials simulation (Quantum ESPRESSO, AiiDA), interactive Jupyter notebooks with local/SSH execution, and agentic AI steering via the Model Context Protocol (MCP).
+
+## Architecture & System Overview
+- Two-Tier Decoupled Topology: Desktop Frontend (customized Code OSS workbench + native extension `hpc-studio`) paired with an autonomous local Sidecar Daemon (FastAPI / Uvicorn running on Python 3.12).
+- IPC & Protocol Stack: Asynchronous HTTP/2 REST APIs and Server-Sent Events (SSE) on dynamic high-order loopback ports with strict HMAC-SHA256 bearer token authentication.
+- Simulation & Computing Engines: Direct SSH/SFTP tunnels into Slurm workload managers, local/remote Jupyter ZeroMQ kernel engines, WebGL 3D crystallographic visualizer, and local/remote Quantum ESPRESSO engines.
+- AI Agentic Layer: Native Model Context Protocol (MCP) server exposing tools for cluster monitoring, job dispatch, crystallographic analysis, and simulation debugging directly to autonomous coding agents (Google Antigravity, Claude, Copilot).
+
+---
+
+## Core Documentation
+
+- [Informe Final Institucional (Normas ICONTEC / UdeC)](informe/informe_final_proyecto_icontec.md): Formal academic and engineering thesis report documenting problem definition, Bloom-compliant objectives, 4+1 architectural model, experimental results, and engineering conclusions.
+- [Especificación de Requisitos de Software (ISO/IEC/IEEE 29148)](requisitos/especificacion_requisitos_iso29148.md): Formal requirement engineering specification with 53 functional (RF) and 18 non-functional (RNF) requirements across security, latency, and scientific accuracy.
+- [Catálogo Tabular de Casos de Uso del Sistema](casos_de_uso/casos_de_uso_sistema.md): Tabular specification of 32 use cases covering cluster management, interactive simulation, 3D visualization, and AI agent copilot.
+- [Manual del Sistema y Arquitectura 4+1 (Kruchten)](arquitectura/manual_del_sistema_4mas1.md): Comprehensive system manual detailing Logical, Process, Development, Physical, and Scenario views.
+- [Arquitectura C4 y arc42](arquitectura/arquitectura_arc42_c4.md): Systematic system decomposition following arc42 sections and C4 Level 1 to 4 diagrams.
+- [Registro de Decisiones de Arquitectura (ADRs)](adr/ADR_INDEX.md): Index of Architectural Decision Records covering decoupled sidecars, token authentication, and WebGL rendering.
+- [Manual de Usuario (Framework Diátaxis)](usuario/manual_de_usuario_diataxis.md): Structured user documentation organized into Tutorials, How-To Guides, Technical Reference, and Deep-Dive Explanations.
+- [Especificación OpenAPI 3.1 del Backend](api/openapi.json): Machine-readable contract of all FastAPI sidecar endpoints.
+- [Referencia de Herramientas MCP para Agentes IA](api/mcp_tools_reference.md): Detailed parameter and schema reference for all 18 Model Context Protocol tools.
+
+---
+
+## Primary Commands & Workflows
+
+### Sidecar Daemon Management
+- Start Sidecar: `uv run python -m hpc_studio.server --port 8000`
+- Run Full Test Suite: `uv run pytest -v` (421 unit/integration tests)
+- Type Check Frontend: `cd extensions/hpc-studio && npm run compile`
+
+### MCP Integration (for AI Agents)
+- Connect via stdio:
+  ```json
+  {
+    "mcpServers": {
+      "hpc-studio": {
+        "command": "uv",
+        "args": ["run", "python", "-m", "hpc_studio.mcp.server"],
+        "cwd": "/home/nosedimetuxd/Proyectos/HPC Studio"
+      }
+    }
+  }
+  ```
+
+### Key MCP Tools
+- `hpc_list_clusters`: List registered HPC clusters and active connection states.
+- `hpc_slurm_squeue`: Query remote Slurm queues with state filtering (R, PD, CG).
+- `hpc_slurm_sbatch`: Submit job scripts to Slurm workload managers via SSH.
+- `hpc_qe_validate_input`: Syntactically validate Quantum ESPRESSO `pw.x` input files.
+- `hpc_qe_parse_output`: Parse total energy, SCF convergence, and forces from `pw.out`.
+- `hpc_crystal_parse`: Load CIF/XYZ structures and compute fractional coordinates and spacegroups.
+- `hpc_aiida_query_nodes`: Inspect provenance graphs and calculation nodes in AiiDA databases.
+
+---
+
+## Technical Baseline & Environment
+- Runtime Environment: Linux (POSIX-compliant, GNOME/KDE/XFCE), Python 3.12, Node.js v20+, TypeScript 5.4.
+- Core Dependencies: FastAPI, Uvicorn, Pydantic v2, Paramiko, PyZMQ, ASE, SeeK-path, Three.js / WebGL.
+- Test Coverage: 421/421 passing tests (100% test success rate).

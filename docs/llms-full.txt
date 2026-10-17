@@ -1,0 +1,143 @@
+# HPC Studio — Comprehensive Machine-Readable Technical Specification (`llms-full.txt`)
+
+> Comprehensive, hallucination-free technical reference and operational guide for autonomous AI coding agents navigating, modifying, or operating HPC Studio.
+
+---
+
+## 1. System Identity and Design Rationale
+
+- **Product Name:** HPC Studio (Scientific IDE & Sidecar Supervisor)
+- **Primary Domain:** High-Performance Computing (HPC), Quantum Chemistry, Condensed Matter Physics (DFT), Interactive Jupyter Computing, and Agentic Engineering.
+- **Architectural Philosophy:** Decoupled Two-Tier Topology. The desktop UI (TypeScript/VS Code Core) remains ultra-responsive by delegating all heavy computational logic, SSH protocol negotiations, crystallography mathematics, and file parsing to a local asynchronous Python 3.12 daemon (FastAPI / Uvicorn).
+
+---
+
+## 2. Directory Layout & Source Code Map
+
+```
+/home/nosedimetuxd/Proyectos/HPC Studio/
+├── pyproject.toml              # Project dependencies, packaging, and tool configs (uv-managed)
+├── src/
+│   └── hpc_studio/
+│       ├── core/               # Configuration management, XDG standard, atomic state persistence
+│       │   ├── config.py       # Configuration dataclasses, environment overrides (HPC_STUDIO_*)
+│       │   ├── state.py        # Window layout and connection history persistence
+│       │   └── signals.py      # Lifecycle signals and event buses
+│       ├── ssh/                # OpenSSH connectivity, authentication, and tunneling
+│       │   ├── config_parser.py# Native ~/.ssh/config parser with wildcard and ProxyJump support
+│       │   ├── auth.py         # VolatileCredentialStore (in-memory passphrases, zero disk storage)
+│       │   ├── client.py       # Async/threaded SSHClientManager wrapping Paramiko
+│       │   └── tunnel.py       # Dynamic direct-tcpip port forwarding
+│       ├── sftp/               # Remote file manipulation and asynchronous transfers
+│       │   ├── client.py       # SFTPClientManager with TTL-based inode caching
+│       │   └── models.py       # RemoteFileInfo, TransferJob, and telemetry formatters
+│       ├── slurm/              # Slurm workload management engine
+│       │   ├── client.py       # Squeue, sbatch, scancel CLI parser and execution wrappers
+│       │   ├── generator.py    # SBATCH script builder with partition and resource validation
+│       │   ├── models.py       # SlurmJob, SlurmPartition, JobState enums
+│       │   └── monitor.py      # Event-driven polling and queue watchdog
+│       ├── crystallography/    # Solid state physics, lattices, and parsers
+│       │   ├── models.py       # ElementData (118 elements), Atom, Lattice, CrystalStructure
+│       │   └── parsers/        # CIF, XYZ, and Quantum ESPRESSO pw.x input/output parsers
+│       ├── jupyter/            # ZeroMQ Jupyter kernel client
+│       │   ├── client.py       # Multi-channel ZMQ connection (shell, iopub, stdin, heartbeat)
+│       │   ├── specs.py        # Local Linux kernelspec discovery
+│       │   └── models.py       # nbformat v4 document parser and cell models
+│       ├── mcp/                # Model Context Protocol (MCP) server for AI agents
+│       │   └── server.py       # JSON-RPC 2.0 tool registry (18 scientific tools)
+│       └── server.py           # FastAPI application root, routers, and SSE telemetry hub
+├── tests/                      # Automated test suite (421 tests, 100% success rate)
+└── docs/                       # Complete documentation portal
+    ├── informe/                # Institutional ICONTEC thesis report
+    ├── requisitos/             # ISO/IEC/IEEE 29148 requirement specifications
+    ├── casos_de_uso/           # System use cases catalog
+    ├── arquitectura/           # 4+1 View Model, C4, arc42 documentation
+    ├── adr/                    # Architectural Decision Records
+    ├── usuario/                # Diátaxis user guides and tutorials
+    └── api/                    # OpenAPI 3.1 contracts and MCP schemas
+
+/home/nosedimetuxd/Proyectos/vscode/extensions/hpc-studio/
+├── package.json                # VS Code extension manifest, commands, views, and settings
+├── src/
+│   ├── extension.ts            # Extension entry point, supervisor lifecycle, sidecar launcher
+│   ├── sidecarSupervisor.ts    # Child process management, heartbeat health check, crash recovery
+│   ├── clusterProvider.ts      # TreeDataProvider for HPC clusters view
+│   ├── jobProvider.ts          # TreeDataProvider for Slurm queue inspector
+│   └── webview/
+│       └── crystalViewer.ts    # Webview panel host for 3D Three.js crystallographic visualizer
+├── syntaxes/                   # TextMate grammars for .in (QE), .slurm, .qasm
+└── snippets/                   # Autocomplete templates for Slurm and DFT
+```
+
+---
+
+## 3. Communication Contracts & Security Protocols
+
+### 3.1 Sidecar Daemon Lifecycle & Handshake
+1. **Startup:** The VS Code extension executes `python -m hpc_studio.server --port 0 --token <RANDOM_HEX>`.
+2. **Ephemeral Binding:** The OS allocates an unused high-order port on `127.0.0.1`.
+3. **Handshake Verification:** The daemon writes its actual port and confirmation to stdout. The extension connects to `GET /health` with `Authorization: Bearer <RANDOM_HEX>`.
+4. **Heartbeat:** Extension polls `GET /health` every 15 seconds. If two consecutive pings fail, the supervisor executes a graceful shutdown and restarts the daemon.
+
+### 3.2 Security Mandate RNF-03 (Volatile Credentials)
+- **Zero Disk Persistence:** No user passphrase, SSH private key, or cluster token is ever persisted to filesystem, temporary files, or SQLite caches.
+- **Volatile Store:** `VolatileCredentialStore` maintains credentials strictly in memory protected by Python thread reentrant locks (`threading.RLock`).
+- **Memory Purge:** On session disconnect or IDE exit, all memory references are overwritten and deleted.
+
+---
+
+## 4. Complete Catalog of Model Context Protocol (MCP) Tools
+
+When interacting with HPC Studio through the MCP server, use the following exact tool signatures:
+
+| Tool Name | Parameters | Return Schema | Function |
+| :--- | :--- | :--- | :--- |
+| `hpc_list_clusters` | None | `Array<{id: string, name: string, host: string, status: string}>` | Lists all clusters configured in `~/.ssh/config` or internal state. |
+| `hpc_connect_cluster` | `cluster_id: string` | `{connected: boolean, message: string}` | Initiates SSH handshake and background worker session. |
+| `hpc_slurm_squeue` | `cluster_id: string, user?: string, partition?: string` | `Array<SlurmJob>` | Queries remote Slurm queue. Returns job ID, partition, state, duration, and nodes. |
+| `hpc_slurm_sbatch` | `cluster_id: string, script_content: string, remote_path: string` | `{job_id: number, status: string}` | Transfers batch script via SFTP and invokes remote `sbatch`. |
+| `hpc_slurm_scancel` | `cluster_id: string, job_id: number` | `{cancelled: boolean}` | Cancels a running or pending job via `scancel`. |
+| `hpc_slurm_generate_script`| `job_name: string, partition: string, nodes: number, ntasks: number, time_limit: string, commands: string[]` | `{script_text: string}` | Generates syntactically validated `#SBATCH` header script. |
+| `hpc_qe_validate_input` | `input_text: string` | `{valid: boolean, errors: string[], warnings: string[]}` | Validates Quantum ESPRESSO `pw.x` namelists (`&CONTROL`, `&SYSTEM`, `&ELECTRONS`) and cards. |
+| `hpc_qe_parse_output` | `output_text: string` | `{converged: boolean, scf_cycles: number, total_energy_ry: number, forces: number[][]}` | Parses electronic convergence and final energy from `pw.out`. |
+| `hpc_crystal_parse` | `format: 'cif'\|'xyz'\|'qe', content: string` | `{lattice: number[][], atoms: Array<{element: string, coords: number[]}>, formula: string}` | Computes fractional/Cartesian coordinates, unit cell volume, and chemical formula. |
+| `hpc_crystal_supercell` | `cif_content: string, nx: number, ny: number, nz: number` | `{supercell_cif: string, atom_count: number}` | Generates an expanded $N_x \times N_y \times N_z$ periodic supercell structure. |
+| `hpc_crystal_kpath` | `cif_content: string` | `{kpoints: Array<{label: string, coords: number[]}>, path: string}` | Calculates high-symmetry Brillouin zone k-path via SeeK-path algorithms. |
+| `hpc_sftp_list` | `cluster_id: string, path: string` | `Array<RemoteFileInfo>` | Lists remote directory contents with Unix permissions and file sizes. |
+| `hpc_sftp_read` | `cluster_id: string, path: string, max_bytes?: number` | `{content: string, size: number}` | Reads remote text or script file over SFTP. |
+| `hpc_sftp_write` | `cluster_id: string, path: string, content: string` | `{bytes_written: number}` | Writes file directly to remote cluster filesystem. |
+| `hpc_aiida_query_nodes`| `query: object` | `Array<AiiDANode>` | Queries provenance nodes from local or remote AiiDA storage graph. |
+| `hpc_jupyter_start_kernel`| `kernelspec: string` | `{kernel_id: string, status: string}` | Spawns a local Jupyter kernel process via ZeroMQ. |
+| `hpc_jupyter_execute` | `kernel_id: string, code: string` | `{execution_count: number, outputs: Array<CellOutput>}` | Executes Python code cell synchronously and returns rich stream/display outputs. |
+| `hpc_jupyter_interrupt`| `kernel_id: string` | `{interrupted: boolean}` | Sends `SIGINT` via ZeroMQ control channel to halt runaway calculations. |
+
+---
+
+## 5. Development, Testing, and Verification Guide
+
+### 5.1 Environment Prerequisites
+- Linux OS (Ubuntu 22.04+, Debian 12+, Fedora 39+, Arch Linux)
+- Python 3.12+ with `uv` package manager installed
+- Node.js v20.x or v22.x LTS with npm
+- Build dependencies: gcc/g++, libzmq3-dev, libffi-dev
+
+### 5.2 Verification Commands
+1. **Run Full Backend Test Suite:**
+   ```bash
+   /home/nosedimetuxd/Proyectos/HPC\ Studio/.venv/bin/pytest -v
+   # Must yield: 417 passed, 4 skipped, 0 failed (100% success rate)
+   ```
+2. **Build and Validate TypeScript Extension:**
+   ```bash
+   cd /home/nosedimetuxd/Proyectos/vscode/extensions/hpc-studio
+   npm run compile
+   # Must exit with code 0 (zero TypeScript errors)
+   ```
+3. **Launch Daemon Manually (Debug Mode):**
+   ```bash
+   uv run python -m hpc_studio.server --port 8000 --debug
+   ```
+4. **Launch Standalone MCP Server for Testing:**
+   ```bash
+   uv run python -m hpc_studio.mcp.server
+   ```
